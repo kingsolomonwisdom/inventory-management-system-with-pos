@@ -331,4 +331,25 @@ body {
     .receipt {
         display: block;
     }
+}
+
+/* Charts styling */
+.chart-container {
+    position: relative;
+    height: 100%;
+    width: 100%;
+    min-height: 300px;
+}
+
+canvas.chart-canvas {
+    box-sizing: border-box;
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+@media (max-width: 768px) {
+    .chart-container {
+        min-height: 250px;
+    }
 } 

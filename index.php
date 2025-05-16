@@ -175,7 +175,9 @@ $conn->close();
     <div class="col-lg-8 mb-4">
         <div class="table-container h-100">
             <h4 class="mb-4"><i class="fas fa-chart-line me-2"></i>Sales Trend (Last 7 Days)</h4>
-            <canvas id="salesChart" height="250"></canvas>
+            <div class="chart-container">
+                <canvas id="salesChart" class="chart-canvas"></canvas>
+            </div>
         </div>
     </div>
     
@@ -276,48 +278,50 @@ $conn->close();
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Sales chart
-    const salesCtx = document.getElementById('salesChart').getContext('2d');
+    const salesCtx = document.getElementById('salesChart');
     
-    const salesChart = new Chart(salesCtx, {
-        type: 'line',
-        data: {
-            labels: <?php echo json_encode($salesLabels); ?>,
-            datasets: [{
-                label: 'Sales Amount',
-                data: <?php echo json_encode($salesAmounts); ?>,
-                backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                borderColor: 'rgba(13, 110, 253, 1)',
-                borderWidth: 2,
-                tension: 0.4,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return '$ ' + context.raw.toFixed(2);
+    if (salesCtx) {
+        new Chart(salesCtx, {
+            type: 'line',
+            data: {
+                labels: <?php echo json_encode($salesLabels); ?>,
+                datasets: [{
+                    label: 'Sales Amount',
+                    data: <?php echo json_encode($salesAmounts); ?>,
+                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                    borderColor: 'rgba(13, 110, 253, 1)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return '$ ' + context.raw.toFixed(2);
+                            }
                         }
                     }
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: function(value) {
-                            return '$ ' + value;
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '$ ' + value;
+                            }
                         }
                     }
                 }
             }
-        }
-    });
+        });
+    }
 });
 </script>
