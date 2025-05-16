@@ -668,6 +668,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     document.getElementById('edit_price').value = product.price;
                     document.getElementById('edit_quantity').value = product.quantity;
                     document.getElementById('edit_barcode').value = product.barcode || '';
+                    document.getElementById('edit_description').value = product.description || '';
                     
                     // Show current image preview
                     const imagePreview = document.getElementById('edit_imagePreview');
