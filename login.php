@@ -73,48 +73,48 @@ if (isset($_SESSION['login_error'])) {
 </head>
 <body>
     <div class="login-container">
-        <div class="login-card">
+        <div class="login-card animate-card">
             <div class="login-header">
-                <h2 class="m-0"><i class="fas fa-boxes me-2"></i><?php echo SITE_NAME; ?></h2>
+                <h2 class="m-0"><?php echo SITE_NAME; ?></h2>
+                <p class="text-light mb-0">Manage your inventory efficiently</p>
             </div>
             <div class="login-body">
                 <?php if (isset($error) && !empty($error)): ?>
-                    <div class="alert alert-danger"><?php echo $error; ?></div>
+                    <div class="alert alert-danger alert-dismissible fade show">
+                        <i class="fas fa-exclamation-circle me-2"></i><?php echo $error; ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
                 <?php endif; ?>
                 
                 <form method="POST" action="">
-                    <div class="mb-4">
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="fas fa-user"></i></span>
-                            <div class="form-floating flex-grow-1">
-                                <input type="text" class="form-control" id="username" name="username" placeholder="Username" required>
-                                <label for="username">Username</label>
-                            </div>
-                        </div>
+                    <div class="input-group input-group-lg mb-4 login-input">
+                        <span class="input-group-text bg-transparent border-end-0">
+                            <i class="fas fa-user text-primary"></i>
+                        </span>
+                        <input type="text" class="form-control border-start-0 ps-0" 
+                               id="username" name="username" placeholder="Username" required>
                     </div>
                     
-                    <div class="mb-4">
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="fas fa-lock"></i></span>
-                            <div class="form-floating flex-grow-1">
-                                <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
-                                <label for="password">Password</label>
-                            </div>
-                            <button type="button" class="btn btn-outline-secondary" id="togglePassword">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </div>
+                    <div class="input-group input-group-lg mb-4 login-input">
+                        <span class="input-group-text bg-transparent border-end-0">
+                            <i class="fas fa-lock text-primary"></i>
+                        </span>
+                        <input type="password" class="form-control border-start-0 ps-0" 
+                               id="password" name="password" placeholder="Password" required>
+                        <button type="button" class="btn btn-outline-secondary border-start-0" id="togglePassword">
+                            <i class="fas fa-eye"></i>
+                        </button>
                     </div>
                     
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-primary btn-lg">
+                    <div class="d-grid mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg login-btn">
                             <i class="fas fa-sign-in-alt me-2"></i>Login
                         </button>
                     </div>
                 </form>
                 
-                <div class="mt-4 text-center text-muted">
-                    <small>@ Copyright 2025 | Orhen Technologies</small>
+                <div class="mt-4 text-center copyright-text">
+                    <small>© Copyright 2025 | Orhen Technologies</small>
                 </div>
             </div>
         </div>

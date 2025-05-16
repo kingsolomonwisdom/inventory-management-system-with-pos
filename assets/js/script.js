@@ -33,15 +33,58 @@ document.addEventListener('DOMContentLoaded', function() {
         const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
     }
 
-    // Toggle password visibility
+    // Toggle password visibility with improved UX
     const togglePassword = document.querySelector('#togglePassword');
     if (togglePassword) {
         const passwordInput = document.querySelector('#password');
         togglePassword.addEventListener('click', function() {
             const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
             passwordInput.setAttribute('type', type);
-            this.querySelector('i').classList.toggle('fa-eye');
-            this.querySelector('i').classList.toggle('fa-eye-slash');
+            // Replace icon and add transition effect
+            const icon = this.querySelector('i');
+            icon.classList.toggle('fa-eye');
+            icon.classList.toggle('fa-eye-slash');
+            // Add animation effect
+            icon.classList.add('fa-flip');
+            setTimeout(() => {
+                icon.classList.remove('fa-flip');
+            }, 500);
+        });
+    }
+    
+    // Login page input field enhancement
+    const loginInputs = document.querySelectorAll('.login-input input');
+    if (loginInputs.length > 0) {
+        loginInputs.forEach(input => {
+            // Add focus effect to input group
+            input.addEventListener('focus', function() {
+                this.closest('.input-group').classList.add('focused-input');
+            });
+            
+            input.addEventListener('blur', function() {
+                this.closest('.input-group').classList.remove('focused-input');
+            });
+            
+            // Auto-focus the first input field on page load
+            if (input === loginInputs[0]) {
+                setTimeout(() => {
+                    input.focus();
+                }, 800); // Delay to match animation duration
+            }
+        });
+    }
+    
+    // Login button effect
+    const loginBtn = document.querySelector('.login-btn');
+    if (loginBtn) {
+        loginBtn.addEventListener('mousedown', function() {
+            this.classList.add('btn-active');
+        });
+        
+        document.addEventListener('mouseup', function() {
+            if (loginBtn.classList.contains('btn-active')) {
+                loginBtn.classList.remove('btn-active');
+            }
         });
     }
     
