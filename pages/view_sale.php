@@ -27,7 +27,15 @@ $stmt->close();
 
 // Get sale items
 $items = [];
-$stmt = $conn->prepare("SELECT si.*, p.name, p.image FROM sale_items si JOIN products p ON si.product_id = p.id WHERE si.sale_id = ?");
+$stmt = $conn->prepare("SELECT si.*, 
+                        CASE 
+                            WHEN p.id IS NULL THEN si.product_name 
+                            ELSE p.name 
+                        END as name,
+                        p.image 
+                        FROM sale_items si 
+                        LEFT JOIN products p ON si.product_id = p.id 
+                        WHERE si.sale_id = ?");
 $stmt->bind_param("i", $sale_id);
 $stmt->execute();
 $result = $stmt->get_result();

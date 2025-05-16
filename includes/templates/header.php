@@ -64,6 +64,11 @@ $current_user = getCurrentUser();
                             <i class="fas fa-users me-1"></i>Users
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="<?php echo SITE_URL; ?>/pages/settings.php">
+                            <i class="fas fa-cog me-1"></i>Settings
+                        </a>
+                    </li>
                     <?php endif; ?>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="reportsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">

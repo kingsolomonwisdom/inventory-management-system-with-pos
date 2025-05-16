@@ -72,6 +72,14 @@ if (isset($_GET['delete']) && isAdmin()) {
 $startDate = isset($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-01'); // Start of current month
 $endDate = isset($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d'); // Today
 
+// Ensure dates are properly formatted to prevent SQL errors
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $startDate)) {
+    $startDate = date('Y-m-01'); // Default to start of month if invalid format
+}
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $endDate)) {
+    $endDate = date('Y-m-d'); // Default to today if invalid format
+}
+
 // Get sales with date filter
 $sales = [];
 $sql = "SELECT s.id, s.invoice_number, s.customer_name, s.total_amount, s.created_at, u.username 
@@ -92,11 +100,18 @@ if ($result) {
 }
 $stmt->close();
 
-// Calculate total sales amount
+// Calculate total sales amount with direct query for accuracy
 $totalSales = 0;
-foreach ($sales as $sale) {
-    $totalSales += $sale['total_amount'];
+$sql = "SELECT SUM(total_amount) as grand_total FROM sales WHERE DATE(created_at) BETWEEN ? AND ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("ss", $startDate, $endDate);
+$stmt->execute();
+$result = $stmt->get_result();
+
+if ($result && $row = $result->fetch_assoc()) {
+    $totalSales = $row['grand_total'] ?: 0;
 }
+$stmt->close();
 
 // Display any message stored in session
 if (isset($_SESSION['message'])) {

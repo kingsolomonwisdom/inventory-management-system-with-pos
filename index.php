@@ -33,37 +33,43 @@ if (isAdmin()) {
     }
 }
 
-// Get total sales amount
+// Get total sales amount - using parameterized query for consistency
 $totalSales = 0;
-$result = $conn->query("SELECT SUM(total_amount) as total FROM sales");
-if ($result) {
-    $row = $result->fetch_assoc();
-    if ($row['total'] !== null) {
-        $totalSales = $row['total'];
-    }
+$stmt = $conn->prepare("SELECT SUM(total_amount) as total FROM sales");
+$stmt->execute();
+$result = $stmt->get_result();
+if ($result && $row = $result->fetch_assoc()) {
+    $totalSales = $row['total'] ?: 0;
 }
+$stmt->close();
 
-// Get today's sales
+// Get today's sales - using parameterized query for consistency
 $todaySales = 0;
-$result = $conn->query("SELECT SUM(total_amount) as total FROM sales WHERE DATE(created_at) = CURDATE()");
-if ($result) {
-    $row = $result->fetch_assoc();
-    if ($row['total'] !== null) {
-        $todaySales = $row['total'];
-    }
+$today = date('Y-m-d');
+$stmt = $conn->prepare("SELECT SUM(total_amount) as total FROM sales WHERE DATE(created_at) = ?");
+$stmt->bind_param("s", $today);
+$stmt->execute();
+$result = $stmt->get_result();
+if ($result && $row = $result->fetch_assoc()) {
+    $todaySales = $row['total'] ?: 0;
 }
+$stmt->close();
 
-// Get recent sales
+// Get recent sales - using parameterized query
 $recentSales = [];
-$result = $conn->query("SELECT s.id, s.invoice_number, s.customer_name, s.total_amount, s.created_at, u.username 
-                        FROM sales s 
-                        JOIN users u ON s.user_id = u.id 
-                        ORDER BY s.created_at DESC LIMIT 5");
+$stmt = $conn->prepare("SELECT s.id, s.invoice_number, s.customer_name, s.total_amount, s.created_at, u.username 
+                      FROM sales s 
+                      JOIN users u ON s.user_id = u.id 
+                      ORDER BY s.created_at DESC LIMIT 5");
+$stmt->execute();
+$result = $stmt->get_result();
+
 if ($result) {
     while ($row = $result->fetch_assoc()) {
         $recentSales[] = $row;
     }
 }
+$stmt->close();
 
 // Get low stock products
 $lowStockItems = [];
@@ -77,32 +83,41 @@ if ($result) {
     }
 }
 
-// Get sales data for chart (last 7 days)
+// Get sales data for chart (last 7 days) - using parameterized query
 $salesData = [];
 $salesLabels = [];
 $salesAmounts = [];
 
-$result = $conn->query("SELECT DATE(created_at) as date, SUM(total_amount) as total 
-                        FROM sales 
-                        WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY) 
-                        GROUP BY DATE(created_at) 
-                        ORDER BY DATE(created_at)");
+// Create array with all dates in last 7 days
+for ($i = 6; $i >= 0; $i--) {
+    $date = date('Y-m-d', strtotime("-$i days"));
+    $salesLabels[] = date('M d', strtotime($date));
+    $salesData[$date] = 0;
+}
+
+// Get data from database
+$startDate = date('Y-m-d', strtotime("-6 days"));
+$endDate = date('Y-m-d');
+
+$stmt = $conn->prepare("SELECT DATE(created_at) as date, SUM(total_amount) as total 
+                      FROM sales 
+                      WHERE DATE(created_at) BETWEEN ? AND ? 
+                      GROUP BY DATE(created_at) 
+                      ORDER BY DATE(created_at)");
+$stmt->bind_param("ss", $startDate, $endDate);
+$stmt->execute();
+$result = $stmt->get_result();
+
+// Fill in actual data
 if ($result) {
-    // Create array with all dates in last 7 days
-    for ($i = 6; $i >= 0; $i--) {
-        $date = date('Y-m-d', strtotime("-$i days"));
-        $salesLabels[] = date('M d', strtotime($date));
-        $salesData[$date] = 0;
-    }
-    
-    // Fill in actual data
     while ($row = $result->fetch_assoc()) {
         $salesData[$row['date']] = $row['total'];
     }
-    
-    // Convert to array for chart
-    $salesAmounts = array_values($salesData);
 }
+$stmt->close();
+
+// Convert to array for chart
+$salesAmounts = array_values($salesData);
 
 $conn->close();
 ?>
