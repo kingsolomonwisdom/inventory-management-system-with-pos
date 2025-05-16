@@ -37,12 +37,13 @@ if (isset($_POST['checkout'])) {
             // Insert sale items and update inventory
             foreach ($cart_items as $item) {
                 $product_id = $item['id'];
+                $product_name = $item['name'];
                 $quantity = $item['quantity'];
                 $price = $item['price'];
                 
                 // Insert sale item
-                $stmt = $conn->prepare("INSERT INTO sale_items (sale_id, product_id, quantity, price) VALUES (?, ?, ?, ?)");
-                $stmt->bind_param("iiid", $sale_id, $product_id, $quantity, $price);
+                $stmt = $conn->prepare("INSERT INTO sale_items (sale_id, product_id, product_name, quantity, price) VALUES (?, ?, ?, ?, ?)");
+                $stmt->bind_param("iisid", $sale_id, $product_id, $product_name, $quantity, $price);
                 $stmt->execute();
                 $stmt->close();
                 
@@ -81,7 +82,7 @@ $result = $conn->query("SELECT p.id, p.name, p.price, p.quantity, p.image, c.nam
                         c.id as category_id 
                         FROM products p 
                         JOIN categories c ON p.category_id = c.id 
-                        WHERE p.quantity > 0 
+                        WHERE p.quantity > 0 AND p.status = 'active'
                         ORDER BY p.name");
 if ($result) {
     while ($row = $result->fetch_assoc()) {

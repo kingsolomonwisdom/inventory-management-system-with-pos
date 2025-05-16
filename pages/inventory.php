@@ -97,30 +97,51 @@ if (isset($_POST['add_product'])) {
 // Delete product
 if (isset($_GET['delete'])) {
     $id = (int)$_GET['delete'];
+    $force = isset($_GET['force']) && $_GET['force'] == 1;
     
-    // Get product image to delete
-    $stmt = $conn->prepare("SELECT image FROM products WHERE id = ?");
+    // Check if the product is used in any sales records
+    $stmt = $conn->prepare("SELECT COUNT(*) as count FROM sale_items WHERE product_id = ?");
     $stmt->bind_param("i", $id);
     $stmt->execute();
     $result = $stmt->get_result();
-    if ($row = $result->fetch_assoc()) {
-        if ($row['image'] && file_exists(UPLOAD_DIR . $row['image'])) {
-            unlink(UPLOAD_DIR . $row['image']);
-        }
-    }
+    $row = $result->fetch_assoc();
+    $has_sales = ($row['count'] > 0);
     $stmt->close();
     
-    // Delete product
-    $stmt = $conn->prepare("DELETE FROM products WHERE id = ?");
-    $stmt->bind_param("i", $id);
-    
-    if ($stmt->execute()) {
-        $message = displayAlert('Product deleted successfully');
+    if ($has_sales && !$force) {
+        // Product has sales records and not forcing deletion - show warning
+        $message = displayError('This product has sales records. <a href="?delete=' . $id . '&force=1" class="alert-link" onclick="return confirm(\'WARNING: Deleting this product will keep orphaned sales records in the database. This could cause reporting issues. Are you absolutely sure you want to continue?\')">Click here</a> to force delete or consider disabling it instead.');
     } else {
-        $message = displayError('Error deleting product: ' . $conn->error);
+        // Either no sales records or forcing deletion - proceed with deletion
+        
+        // Get product image to delete
+        $stmt = $conn->prepare("SELECT image FROM products WHERE id = ?");
+        $stmt->bind_param("i", $id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($row = $result->fetch_assoc()) {
+            if ($row['image'] && file_exists(UPLOAD_DIR . $row['image'])) {
+                unlink(UPLOAD_DIR . $row['image']);
+            }
+        }
+        $stmt->close();
+        
+        // Delete product
+        $stmt = $conn->prepare("DELETE FROM products WHERE id = ?");
+        $stmt->bind_param("i", $id);
+        
+        if ($stmt->execute()) {
+            if ($has_sales && $force) {
+                $message = displayAlert('Product force deleted successfully. Note that orphaned sales records remain in the database.');
+            } else {
+                $message = displayAlert('Product deleted successfully');
+            }
+        } else {
+            $message = displayError('Error deleting product: ' . $conn->error);
+        }
+        
+        $stmt->close();
     }
-    
-    $stmt->close();
 }
 
 // Edit product
@@ -195,11 +216,40 @@ if (isset($_POST['edit_product'])) {
     }
 }
 
+// Toggle product status
+if (isset($_GET['toggle_status'])) {
+    $id = (int)$_GET['toggle_status'];
+    
+    // Get current status
+    $stmt = $conn->prepare("SELECT status FROM products WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    $current_status = $row['status'];
+    $stmt->close();
+    
+    // Toggle status
+    $new_status = ($current_status == 'active') ? 'disabled' : 'active';
+    
+    $stmt = $conn->prepare("UPDATE products SET status = ? WHERE id = ?");
+    $stmt->bind_param("si", $new_status, $id);
+    
+    if ($stmt->execute()) {
+        $status_text = ($new_status == 'active') ? 'enabled' : 'disabled';
+        $message = displayAlert("Product {$status_text} successfully");
+    } else {
+        $message = displayError('Error updating product status: ' . $conn->error);
+    }
+    
+    $stmt->close();
+}
+
 // Get all products
 $products = [];
 $result = $conn->query("SELECT p.*, c.name as category_name FROM products p 
                         JOIN categories c ON p.category_id = c.id 
-                        ORDER BY p.name");
+                        ORDER BY p.status ASC, p.name");
 if ($result) {
     while ($row = $result->fetch_assoc()) {
         $products[] = $row;
@@ -321,7 +371,12 @@ function calculateLowStockThreshold($quantity) {
                                 </div>
                             <?php endif; ?>
                         </td>
-                        <td><?php echo sanitize($product['name']); ?></td>
+                        <td>
+                            <?php echo sanitize($product['name']); ?>
+                            <?php if (isset($product['status']) && $product['status'] == 'disabled'): ?>
+                                <span class="badge bg-secondary">Disabled</span>
+                            <?php endif; ?>
+                        </td>
                         <td><?php echo sanitize($product['category_name']); ?></td>
                         <td><?php echo formatCurrency($product['price']); ?></td>
                         <td><?php echo $product['quantity']; ?></td>
@@ -345,6 +400,12 @@ function calculateLowStockThreshold($quantity) {
                                     data-bs-toggle="modal" data-bs-target="#editProductModal">
                                 <i class="fas fa-edit"></i>
                             </button>
+                            <?php if (isset($product['status'])): ?>
+                                <a href="?toggle_status=<?php echo $product['id']; ?>" class="btn btn-sm <?php echo ($product['status'] == 'active') ? 'btn-warning' : 'btn-success'; ?>" 
+                                   title="<?php echo ($product['status'] == 'active') ? 'Disable' : 'Enable'; ?> this product">
+                                    <i class="fas <?php echo ($product['status'] == 'active') ? 'fa-ban' : 'fa-check-circle'; ?>"></i>
+                                </a>
+                            <?php endif; ?>
                             <a href="?delete=<?php echo $product['id']; ?>" class="btn btn-sm btn-danger" 
                                onclick="return confirm('Are you sure you want to delete this product?')">
                                 <i class="fas fa-trash"></i>

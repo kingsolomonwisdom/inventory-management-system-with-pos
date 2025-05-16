@@ -51,6 +51,7 @@ $tables = [
         `image` varchar(255) DEFAULT NULL,
         `barcode` varchar(50) DEFAULT NULL,
         `low_stock_threshold` int(11) DEFAULT '10',
+        `status` enum('active','disabled') NOT NULL DEFAULT 'active',
         `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (`id`),
         KEY `category_id` (`category_id`),
@@ -72,14 +73,15 @@ $tables = [
     "CREATE TABLE IF NOT EXISTS `sale_items` (
         `id` int(11) NOT NULL AUTO_INCREMENT,
         `sale_id` int(11) NOT NULL,
-        `product_id` int(11) NOT NULL,
+        `product_id` int(11) NULL,
+        `product_name` varchar(100) NOT NULL,
         `quantity` int(11) NOT NULL,
         `price` decimal(10,2) NOT NULL,
         PRIMARY KEY (`id`),
         KEY `sale_id` (`sale_id`),
         KEY `product_id` (`product_id`),
         CONSTRAINT `sale_items_ibfk_1` FOREIGN KEY (`sale_id`) REFERENCES `sales` (`id`) ON DELETE CASCADE,
-        CONSTRAINT `sale_items_ibfk_2` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`)
+        CONSTRAINT `sale_items_ibfk_2` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
 ];
 
@@ -114,6 +116,56 @@ function getConnection() {
         die("Connection failed: " . $conn->connect_error);
     }
     
+    // Check for and add missing columns (for upgrading existing databases)
+    checkAndUpdateTableStructure($conn);
+    
     return $conn;
+}
+
+// Function to check and update table structure
+function checkAndUpdateTableStructure($conn) {
+    // Check if status column exists in products table
+    $result = $conn->query("SHOW COLUMNS FROM products LIKE 'status'");
+    if ($result && $result->num_rows == 0) {
+        // Add status column if it doesn't exist
+        $sql = "ALTER TABLE products ADD COLUMN `status` enum('active','disabled') NOT NULL DEFAULT 'active' AFTER `low_stock_threshold`";
+        $conn->query($sql);
+    }
+    
+    // Check if product_name column exists in sale_items table
+    $result = $conn->query("SHOW COLUMNS FROM sale_items LIKE 'product_name'");
+    if ($result && $result->num_rows == 0) {
+        // First disable foreign key checks
+        $conn->query("SET FOREIGN_KEY_CHECKS=0");
+        
+        // Add product_name column
+        $sql = "ALTER TABLE sale_items ADD COLUMN `product_name` varchar(100) NOT NULL AFTER `product_id`";
+        $conn->query($sql);
+        
+        // Update product_name from products table for existing records
+        $sql = "UPDATE sale_items si JOIN products p ON si.product_id = p.id SET si.product_name = p.name";
+        $conn->query($sql);
+        
+        // Modify product_id to allow NULL
+        $sql = "ALTER TABLE sale_items MODIFY COLUMN `product_id` int(11) NULL";
+        $conn->query($sql);
+        
+        // Drop the existing foreign key constraint
+        $result = $conn->query("SHOW CREATE TABLE sale_items");
+        if ($result && $row = $result->fetch_assoc()) {
+            $createTable = $row['Create Table'];
+            if (preg_match('/CONSTRAINT `sale_items_ibfk_2` FOREIGN KEY/', $createTable)) {
+                $sql = "ALTER TABLE sale_items DROP FOREIGN KEY `sale_items_ibfk_2`";
+                $conn->query($sql);
+            }
+        }
+        
+        // Add back the foreign key with ON DELETE SET NULL
+        $sql = "ALTER TABLE sale_items ADD CONSTRAINT `sale_items_ibfk_2` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE SET NULL";
+        $conn->query($sql);
+        
+        // Re-enable foreign key checks
+        $conn->query("SET FOREIGN_KEY_CHECKS=1");
+    }
 }
 ?> 
