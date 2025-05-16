@@ -69,7 +69,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const productName = this.dataset.name;
                 const productPrice = parseFloat(this.dataset.price);
                 
-                addToCart(productId, productName, productPrice);
+                addToCart(productId, productName, productPrice, this.dataset.maxstock);
                 updateCartDisplay();
             });
         });
@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.target && (e.target.classList.contains('decrease-qty') || e.target.classList.contains('increase-qty'))) {
             const productId = e.target.dataset.id;
             const action = e.target.classList.contains('decrease-qty') ? 'decrease' : 'increase';
-            updateQuantity(productId, action);
+            updateQuantity(productId, action, this.dataset.maxstock);
             updateCartDisplay();
         }
     });
@@ -123,11 +123,16 @@ function saveCartItems(items) {
     localStorage.setItem('cart', JSON.stringify(items));
 }
 
-function addToCart(id, name, price) {
+function addToCart(id, name, price, maxStock) {
     const cart = getCartItems();
     const existingItem = cart.find(item => item.id === id);
     
     if (existingItem) {
+        // Check stock limits before increasing quantity
+        if (existingItem.quantity >= maxStock) {
+            showStockWarning(name, maxStock);
+            return false;
+        }
         existingItem.quantity += 1;
     } else {
         cart.push({
@@ -139,6 +144,29 @@ function addToCart(id, name, price) {
     }
     
     saveCartItems(cart);
+    return true;
+}
+
+function showStockWarning(productName, stockAvailable) {
+    const warningDiv = document.createElement('div');
+    warningDiv.className = 'alert alert-warning alert-dismissible fade show mt-2';
+    warningDiv.setAttribute('role', 'alert');
+    warningDiv.innerHTML = `
+        <strong>Stock limit reached!</strong> Only ${stockAvailable} unit(s) of "${productName}" available.
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    
+    // Find the container to show the warning
+    const container = document.querySelector('.pos-container');
+    if (container) {
+        container.prepend(warningDiv);
+        
+        // Auto dismiss after 5 seconds
+        setTimeout(() => {
+            const alert = bootstrap.Alert.getOrCreateInstance(warningDiv);
+            alert.close();
+        }, 5000);
+    }
 }
 
 function removeFromCart(id) {
@@ -147,12 +175,17 @@ function removeFromCart(id) {
     saveCartItems(updatedCart);
 }
 
-function updateQuantity(id, action) {
+function updateQuantity(id, action, maxStock) {
     const cart = getCartItems();
     const item = cart.find(item => item.id === id);
     
     if (item) {
         if (action === 'increase') {
+            // Check stock limit before increasing
+            if (item.quantity >= maxStock) {
+                showStockWarning(item.name, maxStock);
+                return false;
+            }
             item.quantity += 1;
         } else if (action === 'decrease') {
             item.quantity -= 1;
@@ -161,7 +194,9 @@ function updateQuantity(id, action) {
             }
         }
         saveCartItems(cart);
+        return true;
     }
+    return false;
 }
 
 function updateCartDisplay() {
@@ -193,31 +228,34 @@ function updateCartDisplay() {
             <div class="cart-item-quantity">
                 <button type="button" class="btn btn-sm btn-outline-secondary decrease-qty" data-id="${item.id}">-</button>
                 <span>${item.quantity}</span>
-                <button type="button" class="btn btn-sm btn-outline-secondary increase-qty" data-id="${item.id}">+</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary increase-qty" data-id="${item.id}" data-maxstock="${getProductMaxStock(item.id)}">+</button>
                 <button type="button" class="btn btn-sm btn-outline-danger ms-2 remove-from-cart" data-id="${item.id}">
                     <i class="fas fa-trash-alt"></i>
                 </button>
             </div>
         `;
-        
         cartItemsContainer.appendChild(itemElement);
     });
     
-    // Update total
-    if (cartTotalElement) {
-        cartTotalElement.textContent = `$${total.toFixed(2)}`;
-    }
+    // Update total price
+    cartTotalElement.textContent = formatCurrency(total);
     
-    // Update hidden input with cart data for form submission
+    // Update cart input for form submission
     if (cartItemsInput) {
         cartItemsInput.value = JSON.stringify(cartItems);
     }
     
-    // Update checkout button state
+    // Enable/disable checkout button
     const checkoutBtn = document.querySelector('#checkout-btn');
     if (checkoutBtn) {
         checkoutBtn.disabled = cartItems.length === 0;
     }
+}
+
+// Helper function to get a product's max stock from the product grid
+function getProductMaxStock(productId) {
+    const productCard = document.querySelector(`.product-card[data-id="${productId}"]`);
+    return productCard ? productCard.dataset.maxstock : 0;
 }
 
 // Clear cart function

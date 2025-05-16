@@ -14,64 +14,91 @@ if (isset($_POST['checkout'])) {
     if (empty($cart_items)) {
         $message = displayError('Cart is empty. Please add items before checkout.');
     } else {
-        // Start transaction
-        $conn->begin_transaction();
+        // Validate stock levels before processing
+        $stockError = false;
+        $errorMessage = '';
         
-        try {
-            // Generate invoice number
-            $invoice_number = generateInvoiceNumber();
+        foreach ($cart_items as $item) {
+            $product_id = $item['id'];
+            $quantity = $item['quantity'];
             
-            // Calculate total
-            $total_amount = 0;
-            foreach ($cart_items as $item) {
-                $total_amount += $item['price'] * $item['quantity'];
-            }
-            
-            // Insert sale
-            $stmt = $conn->prepare("INSERT INTO sales (invoice_number, customer_name, user_id, total_amount) VALUES (?, ?, ?, ?)");
-            $stmt->bind_param("ssid", $invoice_number, $customer_name, $_SESSION['user_id'], $total_amount);
+            // Check current stock
+            $stmt = $conn->prepare("SELECT name, quantity FROM products WHERE id = ?");
+            $stmt->bind_param("i", $product_id);
             $stmt->execute();
-            $sale_id = $conn->insert_id;
-            $stmt->close();
+            $result = $stmt->get_result();
             
-            // Insert sale items and update inventory
-            foreach ($cart_items as $item) {
-                $product_id = $item['id'];
-                $product_name = $item['name'];
-                $quantity = $item['quantity'];
-                $price = $item['price'];
-                
-                // Insert sale item
-                $stmt = $conn->prepare("INSERT INTO sale_items (sale_id, product_id, product_name, quantity, price) VALUES (?, ?, ?, ?, ?)");
-                $stmt->bind_param("iisid", $sale_id, $product_id, $product_name, $quantity, $price);
-                $stmt->execute();
-                $stmt->close();
-                
-                // Update inventory
-                $stmt = $conn->prepare("UPDATE products SET quantity = quantity - ? WHERE id = ?");
-                $stmt->bind_param("ii", $quantity, $product_id);
-                $stmt->execute();
-                $stmt->close();
+            if ($row = $result->fetch_assoc()) {
+                if ($quantity > $row['quantity']) {
+                    $stockError = true;
+                    $errorMessage .= "Not enough stock for '" . $row['name'] . "'. Available: " . $row['quantity'] . ", Requested: " . $quantity . "<br>";
+                }
             }
+            $stmt->close();
+        }
+        
+        if ($stockError) {
+            $message = displayError('Stock level error: <br>' . $errorMessage);
+        } else {
+            // Start transaction
+            $conn->begin_transaction();
             
-            // Commit transaction
-            $conn->commit();
-            
-            // Get sale data for receipt
-            $receiptData = [
-                'invoice_number' => $invoice_number,
-                'date' => date('Y-m-d H:i:s'),
-                'customer_name' => $customer_name ?: 'Walk-in Customer',
-                'items' => $cart_items,
-                'total' => $total_amount,
-                'cashier' => $_SESSION['username']
-            ];
-            
-            $message = displayAlert('Sale completed successfully!');
-        } catch (Exception $e) {
-            // Rollback transaction on error
-            $conn->rollback();
-            $message = displayError('Error processing sale: ' . $e->getMessage());
+            try {
+                // Generate invoice number
+                $invoice_number = generateInvoiceNumber();
+                
+                // Calculate total
+                $total_amount = 0;
+                foreach ($cart_items as $item) {
+                    $total_amount += $item['price'] * $item['quantity'];
+                }
+                
+                // Insert sale
+                $stmt = $conn->prepare("INSERT INTO sales (invoice_number, customer_name, user_id, total_amount) VALUES (?, ?, ?, ?)");
+                $stmt->bind_param("ssid", $invoice_number, $customer_name, $_SESSION['user_id'], $total_amount);
+                $stmt->execute();
+                $sale_id = $conn->insert_id;
+                $stmt->close();
+                
+                // Insert sale items and update inventory
+                foreach ($cart_items as $item) {
+                    $product_id = $item['id'];
+                    $product_name = $item['name'];
+                    $quantity = $item['quantity'];
+                    $price = $item['price'];
+                    
+                    // Insert sale item
+                    $stmt = $conn->prepare("INSERT INTO sale_items (sale_id, product_id, product_name, quantity, price) VALUES (?, ?, ?, ?, ?)");
+                    $stmt->bind_param("iisid", $sale_id, $product_id, $product_name, $quantity, $price);
+                    $stmt->execute();
+                    $stmt->close();
+                    
+                    // Update inventory
+                    $stmt = $conn->prepare("UPDATE products SET quantity = quantity - ? WHERE id = ?");
+                    $stmt->bind_param("ii", $quantity, $product_id);
+                    $stmt->execute();
+                    $stmt->close();
+                }
+                
+                // Commit transaction
+                $conn->commit();
+                
+                // Get sale data for receipt
+                $receiptData = [
+                    'invoice_number' => $invoice_number,
+                    'date' => date('Y-m-d H:i:s'),
+                    'customer_name' => $customer_name ?: 'Walk-in Customer',
+                    'items' => $cart_items,
+                    'total' => $total_amount,
+                    'cashier' => $_SESSION['username']
+                ];
+                
+                $message = displayAlert('Sale completed successfully!');
+            } catch (Exception $e) {
+                // Rollback transaction on error
+                $conn->rollback();
+                $message = displayError('Error processing sale: ' . $e->getMessage());
+            }
         }
     }
 }
@@ -133,7 +160,13 @@ $conn->close();
             <div class="p-3 border-bottom">
                 <div class="product-grid" id="productsContainer">
                     <?php foreach ($products as $product): ?>
-                        <div class="product-card" data-id="<?php echo $product['id']; ?>" data-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" data-price="<?php echo $product['price']; ?>" data-category="<?php echo $product['category_name']; ?>" data-category-id="<?php echo $product['category_id']; ?>">
+                        <div class="product-card" 
+                            data-id="<?php echo $product['id']; ?>" 
+                            data-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" 
+                            data-price="<?php echo $product['price']; ?>" 
+                            data-category="<?php echo $product['category_name']; ?>" 
+                            data-category-id="<?php echo $product['category_id']; ?>"
+                            data-maxstock="<?php echo $product['quantity']; ?>">
                             <?php if ($product['image']): ?>
                                 <img src="<?php echo SITE_URL; ?>/uploads/<?php echo $product['image']; ?>" class="product-card-img w-100" alt="<?php echo sanitize($product['name']); ?>">
                             <?php else: ?>
