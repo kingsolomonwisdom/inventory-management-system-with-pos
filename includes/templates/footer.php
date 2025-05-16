@@ -25,23 +25,6 @@
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-    <script>
-        // Global Chart.js configuration
-        Chart.defaults.responsive = true;
-        Chart.defaults.maintainAspectRatio = false;
-        Chart.defaults.font.family = "'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif";
-        Chart.defaults.font.size = 12;
-        Chart.defaults.plugins.tooltip.padding = 10;
-        Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-        Chart.defaults.plugins.legend.position = 'top';
-        
-        // Handle chart responsiveness on window resize
-        window.addEventListener('resize', function() {
-            for (let id in Chart.instances) {
-                Chart.instances[id].resize();
-            }
-        });
-    </script>
     <!-- Custom JS -->
     <script src="<?php echo SITE_URL; ?>/assets/js/script.js"></script>
 </body>

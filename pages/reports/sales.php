@@ -214,8 +214,8 @@ $conn->close();
     <div class="col-lg-8 mb-4">
         <div class="table-container">
             <h4 class="mb-4"><i class="fas fa-chart-bar me-2"></i>Sales Trend</h4>
-            <div class="chart-container">
-                <canvas id="salesChart" class="chart-canvas"></canvas>
+            <div style="position: relative; height: 300px; width: 100%;">
+                <canvas id="salesChart"></canvas>
             </div>
         </div>
     </div>
@@ -310,7 +310,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Sales chart
-    const salesCtx = document.getElementById('salesChart');
+    const salesCtx = document.getElementById('salesChart').getContext('2d');
     
     if (salesCtx) {
         new Chart(salesCtx, {
