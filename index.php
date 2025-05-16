@@ -216,9 +216,9 @@ $conn->close();
                                     <td><?php echo $item['quantity']; ?></td>
                                     <td>
                                         <?php if ($item['quantity'] == 0): ?>
-                                            <span class="badge bg-danger">Out of Stock</span>
+                                            <span class="badge bg-out-of-stock">Out of Stock</span>
                                         <?php else: ?>
-                                            <span class="badge bg-warning">Low Stock</span>
+                                            <span class="badge bg-low-stock">Low Stock</span>
                                         <?php endif; ?>
                                     </td>
                                 </tr>

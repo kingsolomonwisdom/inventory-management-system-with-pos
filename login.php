@@ -114,7 +114,7 @@ if (isset($_SESSION['login_error'])) {
                 </form>
                 
                 <div class="mt-4 text-center text-muted">
-                    <small>Default Admin: username <strong>admin</strong>, password <strong>admin</strong></small>
+                    <small>@ Copyright 2025 | Orhen Technologies</small>
                 </div>
             </div>
         </div>

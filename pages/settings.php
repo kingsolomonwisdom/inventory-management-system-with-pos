@@ -68,6 +68,85 @@ $conn->close();
 <?php echo $message; ?>
 
 <div class="row">
+    <!-- Theme section -->
+    <div class="col-lg-6 mb-4">
+        <div class="table-container h-100">
+            <h4 class="mb-4"><i class="fas fa-palette me-2"></i>Theme Settings</h4>
+            
+            <p>Current color palette:</p>
+            
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="d-flex flex-column gap-2">
+                        <div class="d-flex align-items-center">
+                            <div style="width: 40px; height: 40px; background-color: #106a87;" class="rounded me-2"></div>
+                            <div>
+                                <strong>Primary</strong>
+                                <div class="small text-muted">#106a87</div>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <div style="width: 40px; height: 40px; background-color: #375f74;" class="rounded me-2"></div>
+                            <div>
+                                <strong>Primary Dark</strong>
+                                <div class="small text-muted">#375f74</div>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <div style="width: 40px; height: 40px; background-color: #e02842;" class="rounded me-2"></div>
+                            <div>
+                                <strong>Accent</strong>
+                                <div class="small text-muted">#e02842</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="d-flex flex-column gap-2">
+                        <div class="d-flex align-items-center">
+                            <div style="width: 40px; height: 40px; background-color: #f48c77;" class="rounded me-2"></div>
+                            <div>
+                                <strong>Accent Light</strong>
+                                <div class="small text-muted">#f48c77</div>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <div style="width: 40px; height: 40px; background-color: #d1aba0;" class="rounded me-2"></div>
+                            <div>
+                                <strong>Neutral</strong>
+                                <div class="small text-muted">#d1aba0</div>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <div style="width: 40px; height: 40px; background-color: #69a1b1;" class="rounded me-2"></div>
+                            <div>
+                                <strong>Secondary</strong>
+                                <div class="small text-muted">#69a1b1</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <p>Preview of themed elements:</p>
+            
+            <div class="row mb-4">
+                <div class="col-md-6 d-flex flex-column gap-2">
+                    <button class="btn btn-primary">Primary Button</button>
+                    <button class="btn btn-danger">Danger Button</button>
+                    <button class="btn btn-success">Success Button</button>
+                    <span class="badge bg-out-of-stock mb-1">Out of Stock</span>
+                    <span class="badge bg-low-stock mb-1">Low Stock</span>
+                </div>
+                <div class="col-md-6">
+                    <div class="alert alert-primary">Primary Alert</div>
+                    <div class="alert alert-danger">Danger Alert</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Data Reset Section -->
     <div class="col-lg-6 mb-4">
         <div class="table-container h-100">
             <h4 class="mb-4 text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Reset Data</h4>
@@ -102,7 +181,10 @@ $conn->close();
             </form>
         </div>
     </div>
-    
+</div>
+
+<div class="row">
+    <!-- System Maintenance Section -->
     <div class="col-lg-6 mb-4">
         <div class="table-container h-100">
             <h4 class="mb-4"><i class="fas fa-sync-alt me-2"></i>System Maintenance</h4>
@@ -114,28 +196,32 @@ $conn->close();
                     <i class="fas fa-sync me-1"></i>Synchronize Data
                 </a>
             </div>
+        </div>
+    </div>
+    
+    <!-- System Information Section -->
+    <div class="col-lg-6 mb-4">
+        <div class="table-container h-100">
+            <h4 class="mb-4"><i class="fas fa-info-circle me-2"></i>System Information</h4>
             
-            <div class="mt-5">
-                <h5><i class="fas fa-info-circle me-2"></i>System Information</h5>
-                <table class="table">
-                    <tr>
-                        <td><strong>System Version:</strong></td>
-                        <td>1.0.0</td>
-                    </tr>
-                    <tr>
-                        <td><strong>PHP Version:</strong></td>
-                        <td><?php echo phpversion(); ?></td>
-                    </tr>
-                    <tr>
-                        <td><strong>Database:</strong></td>
-                        <td>MySQL</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Server:</strong></td>
-                        <td><?php echo $_SERVER['SERVER_SOFTWARE']; ?></td>
-                    </tr>
-                </table>
-            </div>
+            <table class="table">
+                <tr>
+                    <td><strong>System Version:</strong></td>
+                    <td>1.0.0</td>
+                </tr>
+                <tr>
+                    <td><strong>PHP Version:</strong></td>
+                    <td><?php echo phpversion(); ?></td>
+                </tr>
+                <tr>
+                    <td><strong>Database:</strong></td>
+                    <td>MySQL</td>
+                </tr>
+                <tr>
+                    <td><strong>Server:</strong></td>
+                    <td><?php echo $_SERVER['SERVER_SOFTWARE']; ?></td>
+                </tr>
+            </table>
         </div>
     </div>
 </div>
@@ -144,8 +230,6 @@ $conn->close();
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Add any settings-specific JavaScript here
-    
     // Make the confirmation field only enabled when a reset type is selected
     const resetTypeSelect = document.getElementById('reset_type');
     const confirmationInput = document.getElementById('confirmation');
