@@ -2,20 +2,39 @@
 require_once '../../config/config.php';
 requireLogin();
 
+// Debug - Print any MySQL connection errors
 $conn = getConnection();
+if ($conn->connect_errno) {
+    echo "Failed to connect to MySQL: " . $conn->connect_error;
+    exit();
+}
+
+// Verify database connection by checking tables
+$result = $conn->query("SHOW TABLES");
+if (!$result) {
+    echo "Error checking tables: " . $conn->error;
+    exit();
+}
+
+// Get default date range for the current month
+$defaultStartDate = date('Y-m-01'); // First day of current month
+$defaultEndDate = date('Y-m-d'); // Today
 
 // Get date range filters
-$startDate = isset($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-01'); // Start of current month
-$endDate = isset($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d'); // Today
+$startDate = isset($_GET['start_date']) && !empty($_GET['start_date']) ? $_GET['start_date'] : $defaultStartDate;
+$endDate = isset($_GET['end_date']) && !empty($_GET['end_date']) ? $_GET['end_date'] : $defaultEndDate;
 $staff_id = isset($_GET['staff_id']) ? (int)$_GET['staff_id'] : 0;
 
 // Ensure dates are properly formatted to prevent SQL errors
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $startDate)) {
-    $startDate = date('Y-m-01'); // Default to start of month if invalid format
+    $startDate = $defaultStartDate;
 }
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $endDate)) {
-    $endDate = date('Y-m-d'); // Default to today if invalid format
+    $endDate = $defaultEndDate;
 }
+
+// Debug - Log the date range being used
+error_log("Report filtering with date range: $startDate to $endDate, Staff ID: $staff_id");
 
 // Get sales data for the time period
 $sales = [];
@@ -46,6 +65,9 @@ if ($result) {
     }
 }
 $stmt->close();
+
+// Debug - Log the number of sales records found
+error_log("Number of sales records found: " . count($sales));
 
 // Get sales data for chart - group by day
 $salesByDay = [];
@@ -85,8 +107,8 @@ $stmt->close();
 $topProducts = [];
 $sql = "SELECT p.id, p.name, SUM(si.quantity) as total_quantity, SUM(si.quantity * si.price) as total_revenue
         FROM sale_items si
-        JOIN products p ON si.product_id = p.id
         JOIN sales s ON si.sale_id = s.id
+        LEFT JOIN products p ON si.product_id = p.id
         WHERE DATE(s.created_at) BETWEEN ? AND ?";
         
 $params = [$startDate, $endDate];
@@ -98,7 +120,7 @@ if ($staff_id > 0) {
     $types .= "i";
 }
 
-$sql .= " GROUP BY p.id
+$sql .= " GROUP BY COALESCE(p.id, si.product_name)
         ORDER BY total_quantity DESC
         LIMIT 5";
 
@@ -139,6 +161,9 @@ if ($result && $row = $result->fetch_assoc()) {
     $totalSales = $row['grand_total'] ?: 0;
 }
 $stmt->close();
+
+// Debug - Log the total sales amount found
+error_log("Total sales amount: " . $totalSales);
 
 $averageSale = $saleCount > 0 ? $totalSales / $saleCount : 0;
 
@@ -283,7 +308,7 @@ $conn->close();
     <h4 class="mb-4"><i class="fas fa-list me-2"></i>Sales List</h4>
     
     <div class="table-responsive">
-        <table class="table table-hover datatable" id="salesTable">
+        <table class="table table-hover" id="salesTable">
             <thead>
                 <tr>
                     <th>Invoice</th>
@@ -291,24 +316,30 @@ $conn->close();
                     <th>Customer</th>
                     <th>Staff</th>
                     <th>Amount</th>
-                    <th data-export="false">Actions</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($sales as $sale): ?>
+                <?php if (count($sales) > 0): ?>
+                    <?php foreach ($sales as $sale): ?>
+                        <tr>
+                            <td><?php echo sanitize($sale['invoice_number']); ?></td>
+                            <td><?php echo formatDateTime($sale['created_at']); ?></td>
+                            <td><?php echo sanitize($sale['customer_name'] ?: 'Walk-in Customer'); ?></td>
+                            <td><?php echo sanitize($sale['username']); ?></td>
+                            <td><?php echo formatCurrency($sale['total_amount']); ?></td>
+                            <td>
+                                <a href="<?php echo SITE_URL; ?>/pages/view_sale.php?id=<?php echo $sale['id']; ?>" class="btn btn-sm btn-info">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php else: ?>
                     <tr>
-                        <td><?php echo sanitize($sale['invoice_number']); ?></td>
-                        <td><?php echo formatDateTime($sale['created_at']); ?></td>
-                        <td><?php echo sanitize($sale['customer_name'] ?: 'Walk-in Customer'); ?></td>
-                        <td><?php echo sanitize($sale['username']); ?></td>
-                        <td><?php echo formatCurrency($sale['total_amount']); ?></td>
-                        <td>
-                            <a href="<?php echo SITE_URL; ?>/pages/view_sale.php?id=<?php echo $sale['id']; ?>" class="btn btn-sm btn-info">
-                                <i class="fas fa-eye"></i>
-                            </a>
-                        </td>
+                        <td colspan="6" class="text-center">No sales data available for this period</td>
                     </tr>
-                <?php endforeach; ?>
+                <?php endif; ?>
             </tbody>
         </table>
     </div>
@@ -377,6 +408,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         });
+    }
+    
+    // Initialize DataTable with minimum options
+    if (typeof $.fn.DataTable === 'function') {
+        // Try/catch to handle any DataTables errors
+        try {
+            // Simple init with minimum options
+            $('#salesTable').DataTable({
+                paging: true,
+                searching: true,
+                ordering: true
+            });
+            
+            console.log("DataTable initialized successfully on reports page");
+        } catch (error) {
+            console.error("DataTable initialization error on reports page:", error);
+        }
+    } else {
+        console.warn("DataTables library not available on reports page");
     }
 });
 </script> 

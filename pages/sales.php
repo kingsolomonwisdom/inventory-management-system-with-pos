@@ -26,10 +26,12 @@ if (isset($_GET['delete']) && isAdmin()) {
         
         // Restore inventory
         foreach ($saleItems as $item) {
-            $stmt = $conn->prepare("UPDATE products SET quantity = quantity + ? WHERE id = ?");
-            $stmt->bind_param("ii", $item['quantity'], $item['product_id']);
-            $stmt->execute();
-            $stmt->close();
+            if ($item['product_id'] !== null) {
+                $stmt = $conn->prepare("UPDATE products SET quantity = quantity + ? WHERE id = ?");
+                $stmt->bind_param("ii", $item['quantity'], $item['product_id']);
+                $stmt->execute();
+                $stmt->close();
+            }
         }
         
         // Delete sale items
@@ -68,17 +70,24 @@ if (isset($_GET['delete']) && isAdmin()) {
     exit;
 }
 
+// Get default date range for the current month
+$defaultStartDate = date('Y-m-01'); // First day of current month
+$defaultEndDate = date('Y-m-d'); // Today
+
 // Get date range filters
-$startDate = isset($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-01'); // Start of current month
-$endDate = isset($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d'); // Today
+$startDate = isset($_GET['start_date']) && !empty($_GET['start_date']) ? $_GET['start_date'] : $defaultStartDate;
+$endDate = isset($_GET['end_date']) && !empty($_GET['end_date']) ? $_GET['end_date'] : $defaultEndDate;
 
 // Ensure dates are properly formatted to prevent SQL errors
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $startDate)) {
-    $startDate = date('Y-m-01'); // Default to start of month if invalid format
+    $startDate = $defaultStartDate;
 }
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $endDate)) {
-    $endDate = date('Y-m-d'); // Default to today if invalid format
+    $endDate = $defaultEndDate;
 }
+
+// Debug - Log the date range being used
+error_log("Filtering sales with date range: $startDate to $endDate");
 
 // Get sales with date filter
 $sales = [];
@@ -112,6 +121,9 @@ if ($result && $row = $result->fetch_assoc()) {
     $totalSales = $row['grand_total'] ?: 0;
 }
 $stmt->close();
+
+// Debug - Log the number of sales found and total amount
+error_log("Sales found: " . count($sales) . ", Total amount: $totalSales");
 
 // Display any message stored in session
 if (isset($_SESSION['message'])) {
@@ -163,7 +175,7 @@ $conn->close();
     </div>
     
     <div class="table-responsive">
-        <table class="table table-hover datatable" id="salesTable">
+        <table class="table table-hover" id="salesTable">
             <thead>
                 <tr>
                     <th>ID</th>
@@ -172,32 +184,38 @@ $conn->close();
                     <th>Amount</th>
                     <th>Date</th>
                     <th>Staff</th>
-                    <th data-export="false">Actions</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($sales as $sale): ?>
-                    <tr>
-                        <td><?php echo $sale['id']; ?></td>
-                        <td><?php echo sanitize($sale['invoice_number']); ?></td>
-                        <td><?php echo sanitize($sale['customer_name'] ?: 'Walk-in Customer'); ?></td>
-                        <td><?php echo formatCurrency($sale['total_amount']); ?></td>
-                        <td><?php echo formatDateTime($sale['created_at']); ?></td>
-                        <td><?php echo sanitize($sale['username']); ?></td>
-                        <td>
-                            <a href="<?php echo SITE_URL; ?>/pages/view_sale.php?id=<?php echo $sale['id']; ?>" class="btn btn-sm btn-info">
-                                <i class="fas fa-eye"></i>
-                            </a>
-                            <?php if (isAdmin()): ?>
-                                <a href="?delete=<?php echo $sale['id']; ?>&start_date=<?php echo $startDate; ?>&end_date=<?php echo $endDate; ?>" 
-                                   class="btn btn-sm btn-danger" 
-                                   onclick="return confirm('Are you sure you want to delete this sale? This will restore items to inventory.')">
-                                    <i class="fas fa-trash"></i>
+                <?php if (count($sales) > 0): ?>
+                    <?php foreach ($sales as $sale): ?>
+                        <tr>
+                            <td><?php echo $sale['id']; ?></td>
+                            <td><?php echo sanitize($sale['invoice_number']); ?></td>
+                            <td><?php echo sanitize($sale['customer_name'] ?: 'Walk-in Customer'); ?></td>
+                            <td><?php echo formatCurrency($sale['total_amount']); ?></td>
+                            <td><?php echo formatDateTime($sale['created_at']); ?></td>
+                            <td><?php echo sanitize($sale['username']); ?></td>
+                            <td>
+                                <a href="<?php echo SITE_URL; ?>/pages/view_sale.php?id=<?php echo $sale['id']; ?>" class="btn btn-sm btn-info">
+                                    <i class="fas fa-eye"></i>
                                 </a>
-                            <?php endif; ?>
-                        </td>
+                                <?php if (isAdmin()): ?>
+                                    <a href="?delete=<?php echo $sale['id']; ?>&start_date=<?php echo $startDate; ?>&end_date=<?php echo $endDate; ?>" 
+                                       class="btn btn-sm btn-danger" 
+                                       onclick="return confirm('Are you sure you want to delete this sale? This will restore items to inventory.')">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <tr>
+                        <td colspan="7" class="text-center">No data available in table</td>
                     </tr>
-                <?php endforeach; ?>
+                <?php endif; ?>
             </tbody>
         </table>
     </div>
@@ -223,5 +241,24 @@ document.addEventListener('DOMContentLoaded', function() {
             endDateInput.value = startDateInput.value;
         }
     });
+    
+    // Make sure DataTables is available
+    if (typeof $.fn.DataTable === 'function') {
+        // Try/catch to handle any DataTables errors
+        try {
+            // Simple init with minimum options
+            $('#salesTable').DataTable({
+                paging: true,
+                searching: true,
+                ordering: true
+            });
+            
+            console.log("DataTable initialized successfully");
+        } catch (error) {
+            console.error("DataTable initialization error:", error);
+        }
+    } else {
+        console.warn("DataTables library not available");
+    }
 });
 </script> 

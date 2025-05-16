@@ -2,8 +2,21 @@
 require_once 'config/config.php';
 requireLogin();
 
-// Get total products count
+// Debug - Print any MySQL connection errors
 $conn = getConnection();
+if ($conn->connect_errno) {
+    echo "Failed to connect to MySQL: " . $conn->connect_error;
+    exit();
+}
+
+// Verify database connection by checking tables
+$result = $conn->query("SHOW TABLES");
+if (!$result) {
+    echo "Error checking tables: " . $conn->error;
+    exit();
+}
+
+// Get total products count
 $totalProducts = 0;
 $result = $conn->query("SELECT COUNT(*) as count FROM products");
 if ($result) {
@@ -33,17 +46,18 @@ if (isAdmin()) {
     }
 }
 
-// Get total sales amount - using parameterized query for consistency
+// Debug - Log database schema version
+error_log("Checking sales data in dashboard");
+
+// Get total sales amount
 $totalSales = 0;
-$stmt = $conn->prepare("SELECT SUM(total_amount) as total FROM sales");
-$stmt->execute();
-$result = $stmt->get_result();
+$result = $conn->query("SELECT SUM(total_amount) as total FROM sales");
 if ($result && $row = $result->fetch_assoc()) {
     $totalSales = $row['total'] ?: 0;
 }
-$stmt->close();
+error_log("Total sales amount: " . $totalSales);
 
-// Get today's sales - using parameterized query for consistency
+// Get today's sales
 $todaySales = 0;
 $today = date('Y-m-d');
 $stmt = $conn->prepare("SELECT SUM(total_amount) as total FROM sales WHERE DATE(created_at) = ?");
@@ -54,8 +68,9 @@ if ($result && $row = $result->fetch_assoc()) {
     $todaySales = $row['total'] ?: 0;
 }
 $stmt->close();
+error_log("Today's sales amount: " . $todaySales);
 
-// Get recent sales - using parameterized query
+// Get recent sales
 $recentSales = [];
 $stmt = $conn->prepare("SELECT s.id, s.invoice_number, s.customer_name, s.total_amount, s.created_at, u.username 
                       FROM sales s 
@@ -83,7 +98,7 @@ if ($result) {
     }
 }
 
-// Get sales data for chart (last 7 days) - using parameterized query
+// Get sales data for chart (last 7 days)
 $salesData = [];
 $salesLabels = [];
 $salesAmounts = [];
@@ -95,29 +110,38 @@ for ($i = 6; $i >= 0; $i--) {
     $salesData[$date] = 0;
 }
 
-// Get data from database
+// Debug log the date range for chart
 $startDate = date('Y-m-d', strtotime("-6 days"));
 $endDate = date('Y-m-d');
+error_log("Chart date range: $startDate to $endDate");
 
-$stmt = $conn->prepare("SELECT DATE(created_at) as date, SUM(total_amount) as total 
-                      FROM sales 
-                      WHERE DATE(created_at) BETWEEN ? AND ? 
-                      GROUP BY DATE(created_at) 
-                      ORDER BY DATE(created_at)");
+// Get chart data with explicit date conversion to account for timezone differences
+$sql = "SELECT DATE(created_at) as date, SUM(total_amount) as total 
+      FROM sales 
+      WHERE DATE(created_at) BETWEEN ? AND ?
+      GROUP BY DATE(created_at) 
+      ORDER BY DATE(created_at)";
+
+$stmt = $conn->prepare($sql);
 $stmt->bind_param("ss", $startDate, $endDate);
 $stmt->execute();
 $result = $stmt->get_result();
 
 // Fill in actual data
 if ($result) {
+    error_log("Found " . $result->num_rows . " days with sales for the chart");
     while ($row = $result->fetch_assoc()) {
-        $salesData[$row['date']] = $row['total'];
+        error_log("Chart data: " . $row['date'] . " = " . $row['total']);
+        $salesData[$row['date']] = (float)$row['total'];
     }
+} else {
+    error_log("Chart query error: " . $conn->error);
 }
 $stmt->close();
 
 // Convert to array for chart
 $salesAmounts = array_values($salesData);
+error_log("Chart data points: " . implode(", ", $salesAmounts));
 
 $conn->close();
 ?>
@@ -216,9 +240,9 @@ $conn->close();
                                     <td><?php echo $item['quantity']; ?></td>
                                     <td>
                                         <?php if ($item['quantity'] == 0): ?>
-                                            <span class="badge bg-out-of-stock">Out of Stock</span>
+                                            <span class="badge bg-danger">Out of Stock</span>
                                         <?php else: ?>
-                                            <span class="badge bg-low-stock">Low Stock</span>
+                                            <span class="badge bg-warning">Low Stock</span>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
@@ -243,19 +267,19 @@ $conn->close();
         <div class="table-container">
             <h4 class="mb-4"><i class="fas fa-receipt me-2"></i>Recent Sales</h4>
             <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Invoice</th>
-                            <th>Customer</th>
-                            <th>Amount</th>
-                            <th>Date</th>
-                            <th>Staff</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (count($recentSales) > 0): ?>
+                <?php if (count($recentSales) > 0): ?>
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Invoice</th>
+                                <th>Customer</th>
+                                <th>Amount</th>
+                                <th>Date</th>
+                                <th>Staff</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
                             <?php foreach ($recentSales as $sale): ?>
                                 <tr>
                                     <td><?php echo sanitize($sale['invoice_number']); ?></td>
@@ -264,25 +288,25 @@ $conn->close();
                                     <td><?php echo formatDateTime($sale['created_at']); ?></td>
                                     <td><?php echo sanitize($sale['username']); ?></td>
                                     <td>
-                                        <a href="<?php echo SITE_URL; ?>/pages/view_sale.php?id=<?php echo $sale['id']; ?>" class="btn btn-sm btn-primary">
+                                        <a href="<?php echo SITE_URL; ?>/pages/view_sale.php?id=<?php echo $sale['id']; ?>" class="btn btn-sm btn-info">
                                             <i class="fas fa-eye"></i>
                                         </a>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
-                        <?php else: ?>
-                            <tr>
-                                <td colspan="6" class="text-center">No sales recorded yet</td>
-                            </tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
+                        </tbody>
+                    </table>
+                <?php else: ?>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>No recent sales found.
+                    </div>
+                <?php endif; ?>
             </div>
             <div class="mt-3">
                 <a href="<?php echo SITE_URL; ?>/pages/sales.php" class="btn btn-sm btn-outline-primary">View All Sales</a>
-                <a href="<?php echo SITE_URL; ?>/pages/pos.php" class="btn btn-sm btn-success ms-2">
-                    <i class="fas fa-plus-circle me-1"></i>New Sale
-                </a>
+                <?php if (count($recentSales) == 0): ?>
+                    <a href="<?php echo SITE_URL; ?>/pages/pos.php" class="btn btn-sm btn-primary ms-2">Create New Sale</a>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -292,51 +316,55 @@ $conn->close();
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Sales chart
-    const salesCtx = document.getElementById('salesChart').getContext('2d');
+    // Sales Chart with improved rendering and data handling
+    var ctx = document.getElementById('salesChart').getContext('2d');
+    var chartLabels = <?php echo json_encode($salesLabels); ?>;
+    var chartData = <?php echo json_encode($salesAmounts); ?>;
     
-    if (salesCtx) {
-        new Chart(salesCtx, {
-            type: 'line',
-            data: {
-                labels: <?php echo json_encode($salesLabels); ?>,
-                datasets: [{
-                    label: 'Sales Amount',
-                    data: <?php echo json_encode($salesAmounts); ?>,
-                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                    borderColor: 'rgba(13, 110, 253, 1)',
-                    borderWidth: 2,
-                    tension: 0.4,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return '$ ' + context.raw.toFixed(2);
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return '$ ' + value;
-                            }
+    console.log("Chart labels:", chartLabels);
+    console.log("Chart data:", chartData);
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartLabels,
+            datasets: [{
+                label: 'Sales',
+                data: chartData,
+                backgroundColor: 'rgba(37, 120, 152, 0.2)',
+                borderColor: 'rgba(37, 120, 152, 1)',
+                borderWidth: 2,
+                pointBackgroundColor: 'rgba(37, 120, 152, 1)',
+                pointRadius: 4,
+                tension: 0.2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value;
                         }
                     }
                 }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return '$' + Number(context.parsed.y).toFixed(2);
+                        }
+                    }
+                },
+                legend: {
+                    display: false
+                }
             }
-        });
-    }
+        }
+    });
 });
 </script>
