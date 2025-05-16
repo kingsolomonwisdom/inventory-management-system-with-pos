@@ -622,14 +622,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     document.getElementById('view_price').textContent = price;
                     document.getElementById('view_quantity').textContent = quantity;
                     document.getElementById('view_barcode').textContent = product.barcode || 'N/A';
-                    document.getElementById('view_threshold').textContent = product.low_stock_threshold;
+                    
+                    // Calculate and display the threshold dynamically
+                    const qty = parseInt(quantity);
+                    let threshold = calculateLowStockThreshold(qty);
+                    document.getElementById('view_threshold').textContent = threshold;
+                    
                     document.getElementById('view_description').textContent = product.description || 'No description available';
                     
                     // Set status
                     const statusElement = document.getElementById('view_status');
                     if (parseInt(quantity) <= 0) {
                         statusElement.innerHTML = '<span class="badge bg-danger">Out of Stock</span>';
-                    } else if (parseInt(quantity) <= parseInt(product.low_stock_threshold)) {
+                    } else if (parseInt(quantity) <= threshold) {
                         statusElement.innerHTML = '<span class="badge bg-warning">Low Stock</span>';
                     } else {
                         statusElement.innerHTML = '<span class="badge bg-success">In Stock</span>';
@@ -899,6 +904,26 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Combine prefix and number with a hyphen
         return `${prefix}-${number}`;
+    }
+    
+    // Client-side function to match the PHP version for displaying threshold
+    function calculateLowStockThreshold(quantity) {
+        // Basic logic: 15% of current quantity, with a minimum of 5 and maximum of 100
+        let threshold = Math.max(5, Math.min(100, Math.ceil(quantity * 0.15)));
+        
+        // Adjust threshold based on quantity ranges for more appropriate values
+        if (quantity > 1000) {
+            // For very high stock items, use a smaller percentage
+            threshold = Math.ceil(quantity * 0.10);
+        } else if (quantity > 500) {
+            // For high stock items
+            threshold = Math.ceil(quantity * 0.12);
+        } else if (quantity < 50) {
+            // For low stock items, use a higher percentage
+            threshold = Math.max(3, Math.ceil(quantity * 0.25));
+        }
+        
+        return threshold;
     }
 });
 </script> 

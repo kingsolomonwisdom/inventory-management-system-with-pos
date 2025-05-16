@@ -77,7 +77,8 @@ if (isset($_POST['checkout'])) {
 
 // Get all products for POS
 $products = [];
-$result = $conn->query("SELECT p.id, p.name, p.price, p.quantity, p.image, c.name as category_name 
+$result = $conn->query("SELECT p.id, p.name, p.price, p.quantity, p.image, c.name as category_name, 
+                        c.id as category_id 
                         FROM products p 
                         JOIN categories c ON p.category_id = c.id 
                         WHERE p.quantity > 0 
