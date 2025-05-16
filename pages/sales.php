@@ -47,12 +47,25 @@ if (isset($_GET['delete']) && isAdmin()) {
         // Commit transaction
         $conn->commit();
         
-        $message = displayAlert('Sale deleted successfully and inventory restored');
+        $_SESSION['message'] = displayAlert('Sale deleted successfully and inventory restored');
     } catch (Exception $e) {
         // Rollback transaction on error
         $conn->rollback();
-        $message = displayError('Error deleting sale: ' . $e->getMessage());
+        $_SESSION['message'] = displayError('Error deleting sale: ' . $e->getMessage());
     }
+    
+    // Redirect to GET request (preserving any filters)
+    $redirect_url = $_SERVER['PHP_SELF'];
+    $params = [];
+    if (isset($_GET['start_date'])) $params[] = 'start_date=' . urlencode($_GET['start_date']);
+    if (isset($_GET['end_date'])) $params[] = 'end_date=' . urlencode($_GET['end_date']);
+    
+    if (!empty($params)) {
+        $redirect_url .= '?' . implode('&', $params);
+    }
+    
+    header('Location: ' . $redirect_url);
+    exit;
 }
 
 // Get date range filters
@@ -83,6 +96,12 @@ $stmt->close();
 $totalSales = 0;
 foreach ($sales as $sale) {
     $totalSales += $sale['total_amount'];
+}
+
+// Display any message stored in session
+if (isset($_SESSION['message'])) {
+    $message = $_SESSION['message'];
+    unset($_SESSION['message']); // Clear the message after displaying it
 }
 
 $conn->close();

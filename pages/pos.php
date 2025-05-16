@@ -6,13 +6,21 @@ $conn = getConnection();
 $message = '';
 $receiptData = null;
 
+// Get receipt data from session if available
+if (isset($_SESSION['receipt_data'])) {
+    $receiptData = $_SESSION['receipt_data'];
+    unset($_SESSION['receipt_data']);
+}
+
 // Process checkout
 if (isset($_POST['checkout'])) {
     $cart_items = json_decode($_POST['cart_items'], true);
     $customer_name = sanitize($_POST['customer_name']);
     
     if (empty($cart_items)) {
-        $message = displayError('Cart is empty. Please add items before checkout.');
+        $_SESSION['message'] = displayError('Cart is empty. Please add items before checkout.');
+        header('Location: ' . $_SERVER['PHP_SELF']);
+        exit;
     } else {
         // Validate stock levels before processing
         $stockError = false;
@@ -38,7 +46,9 @@ if (isset($_POST['checkout'])) {
         }
         
         if ($stockError) {
-            $message = displayError('Stock level error: <br>' . $errorMessage);
+            $_SESSION['message'] = displayError('Stock level error: <br>' . $errorMessage);
+            header('Location: ' . $_SERVER['PHP_SELF']);
+            exit;
         } else {
             // Start transaction
             $conn->begin_transaction();
@@ -83,8 +93,8 @@ if (isset($_POST['checkout'])) {
                 // Commit transaction
                 $conn->commit();
                 
-                // Get sale data for receipt
-                $receiptData = [
+                // Store receipt data in session
+                $_SESSION['receipt_data'] = [
                     'invoice_number' => $invoice_number,
                     'date' => date('Y-m-d H:i:s'),
                     'customer_name' => $customer_name ?: 'Walk-in Customer',
@@ -93,14 +103,26 @@ if (isset($_POST['checkout'])) {
                     'cashier' => $_SESSION['username']
                 ];
                 
-                $message = displayAlert('Sale completed successfully!');
+                $_SESSION['message'] = displayAlert('Sale completed successfully!');
+                
+                // Redirect to prevent duplicate submission
+                header('Location: ' . $_SERVER['PHP_SELF']);
+                exit;
             } catch (Exception $e) {
                 // Rollback transaction on error
                 $conn->rollback();
-                $message = displayError('Error processing sale: ' . $e->getMessage());
+                $_SESSION['message'] = displayError('Error processing sale: ' . $e->getMessage());
+                header('Location: ' . $_SERVER['PHP_SELF']);
+                exit;
             }
         }
     }
+}
+
+// Display any message stored in session
+if (isset($_SESSION['message'])) {
+    $message = $_SESSION['message'];
+    unset($_SESSION['message']); // Clear the message after displaying it
 }
 
 // Get all products for POS

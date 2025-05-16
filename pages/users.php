@@ -12,7 +12,7 @@ if (isset($_POST['add_user'])) {
     $role = sanitize($_POST['role']);
     
     if (empty($username) || empty($password)) {
-        $message = displayError('Username and password are required');
+        $_SESSION['message'] = displayError('Username and password are required');
     } else {
         // Check if username exists
         $stmt = $conn->prepare("SELECT id FROM users WHERE username = ?");
@@ -21,7 +21,7 @@ if (isset($_POST['add_user'])) {
         $result = $stmt->get_result();
         
         if ($result->num_rows > 0) {
-            $message = displayError('Username already exists');
+            $_SESSION['message'] = displayError('Username already exists');
         } else {
             // Hash password
             $hashed_password = password_hash($password, PASSWORD_DEFAULT);
@@ -31,14 +31,18 @@ if (isset($_POST['add_user'])) {
             $stmt->bind_param("sss", $username, $hashed_password, $role);
             
             if ($stmt->execute()) {
-                $message = displayAlert('User added successfully');
+                $_SESSION['message'] = displayAlert('User added successfully');
             } else {
-                $message = displayError('Error adding user: ' . $conn->error);
+                $_SESSION['message'] = displayError('Error adding user: ' . $conn->error);
             }
         }
         
         $stmt->close();
     }
+    
+    // Redirect to GET request
+    header('Location: ' . $_SERVER['PHP_SELF']);
+    exit;
 }
 
 // Delete user
@@ -47,19 +51,23 @@ if (isset($_GET['delete'])) {
     
     // Cannot delete yourself
     if ($id == $_SESSION['user_id']) {
-        $message = displayError('You cannot delete your own account');
+        $_SESSION['message'] = displayError('You cannot delete your own account');
     } else {
         $stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
         $stmt->bind_param("i", $id);
         
         if ($stmt->execute()) {
-            $message = displayAlert('User deleted successfully');
+            $_SESSION['message'] = displayAlert('User deleted successfully');
         } else {
-            $message = displayError('Error deleting user: ' . $conn->error);
+            $_SESSION['message'] = displayError('Error deleting user: ' . $conn->error);
         }
         
         $stmt->close();
     }
+    
+    // Redirect to GET request (without delete parameter)
+    header('Location: ' . $_SERVER['PHP_SELF']);
+    exit;
 }
 
 // Edit user
@@ -70,7 +78,7 @@ if (isset($_POST['edit_user'])) {
     $password = $_POST['password'];
     
     if (empty($username)) {
-        $message = displayError('Username is required');
+        $_SESSION['message'] = displayError('Username is required');
     } else {
         // Check if username exists for other users
         $stmt = $conn->prepare("SELECT id FROM users WHERE username = ? AND id != ?");
@@ -79,7 +87,7 @@ if (isset($_POST['edit_user'])) {
         $result = $stmt->get_result();
         
         if ($result->num_rows > 0) {
-            $message = displayError('Username already exists');
+            $_SESSION['message'] = displayError('Username already exists');
         } else {
             // Update user
             if (!empty($password)) {
@@ -94,14 +102,18 @@ if (isset($_POST['edit_user'])) {
             }
             
             if ($stmt->execute()) {
-                $message = displayAlert('User updated successfully');
+                $_SESSION['message'] = displayAlert('User updated successfully');
             } else {
-                $message = displayError('Error updating user: ' . $conn->error);
+                $_SESSION['message'] = displayError('Error updating user: ' . $conn->error);
             }
         }
         
         $stmt->close();
     }
+    
+    // Redirect to GET request
+    header('Location: ' . $_SERVER['PHP_SELF']);
+    exit;
 }
 
 // Get all users
@@ -112,6 +124,12 @@ if ($result) {
         $users[] = $row;
     }
     $result->free();
+}
+
+// Display any message stored in session
+if (isset($_SESSION['message'])) {
+    $message = $_SESSION['message'];
+    unset($_SESSION['message']); // Clear the message after displaying it
 }
 
 $conn->close();

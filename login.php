@@ -14,7 +14,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $error = '';
     
     if (empty($username) || empty($password)) {
-        $error = 'Please enter both username and password';
+        $_SESSION['login_error'] = 'Please enter both username and password';
+        header('Location: login.php');
+        exit;
     } else {
         $conn = getConnection();
         $stmt = $conn->prepare("SELECT id, username, password, role FROM users WHERE username = ?");
@@ -35,15 +37,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 header('Location: index.php');
                 exit;
             } else {
-                $error = 'Invalid password';
+                $_SESSION['login_error'] = 'Invalid password';
+                header('Location: login.php');
+                exit;
             }
         } else {
-            $error = 'User not found';
+            $_SESSION['login_error'] = 'User not found';
+            header('Location: login.php');
+            exit;
         }
         
         $stmt->close();
         $conn->close();
     }
+}
+
+// Get error from session if it exists
+if (isset($_SESSION['login_error'])) {
+    $error = $_SESSION['login_error'];
+    unset($_SESSION['login_error']);
 }
 ?>
 <!DOCTYPE html>

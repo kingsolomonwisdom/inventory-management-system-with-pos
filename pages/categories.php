@@ -10,19 +10,23 @@ if (isset($_POST['add_category'])) {
     $name = sanitize($_POST['name']);
     
     if (empty($name)) {
-        $message = displayError('Category name is required');
+        $_SESSION['message'] = displayError('Category name is required');
     } else {
         $stmt = $conn->prepare("INSERT INTO categories (name) VALUES (?)");
         $stmt->bind_param("s", $name);
         
         if ($stmt->execute()) {
-            $message = displayAlert('Category added successfully');
+            $_SESSION['message'] = displayAlert('Category added successfully');
         } else {
-            $message = displayError('Error adding category: ' . $conn->error);
+            $_SESSION['message'] = displayError('Error adding category: ' . $conn->error);
         }
         
         $stmt->close();
     }
+    
+    // Redirect to GET request
+    header('Location: ' . $_SERVER['PHP_SELF']);
+    exit;
 }
 
 // Delete category
@@ -38,19 +42,23 @@ if (isset($_GET['delete'])) {
     $check->close();
     
     if ($row['count'] > 0) {
-        $message = displayError('Cannot delete category: It is being used by ' . $row['count'] . ' product(s)');
+        $_SESSION['message'] = displayError('Cannot delete category: It is being used by ' . $row['count'] . ' product(s)');
     } else {
         $stmt = $conn->prepare("DELETE FROM categories WHERE id = ?");
         $stmt->bind_param("i", $id);
         
         if ($stmt->execute()) {
-            $message = displayAlert('Category deleted successfully');
+            $_SESSION['message'] = displayAlert('Category deleted successfully');
         } else {
-            $message = displayError('Error deleting category: ' . $conn->error);
+            $_SESSION['message'] = displayError('Error deleting category: ' . $conn->error);
         }
         
         $stmt->close();
     }
+    
+    // Redirect to GET request (without delete parameter)
+    header('Location: ' . $_SERVER['PHP_SELF']);
+    exit;
 }
 
 // Edit category
@@ -59,19 +67,23 @@ if (isset($_POST['edit_category'])) {
     $name = sanitize($_POST['name']);
     
     if (empty($name)) {
-        $message = displayError('Category name is required');
+        $_SESSION['message'] = displayError('Category name is required');
     } else {
         $stmt = $conn->prepare("UPDATE categories SET name = ? WHERE id = ?");
         $stmt->bind_param("si", $name, $id);
         
         if ($stmt->execute()) {
-            $message = displayAlert('Category updated successfully');
+            $_SESSION['message'] = displayAlert('Category updated successfully');
         } else {
-            $message = displayError('Error updating category: ' . $conn->error);
+            $_SESSION['message'] = displayError('Error updating category: ' . $conn->error);
         }
         
         $stmt->close();
     }
+    
+    // Redirect to GET request
+    header('Location: ' . $_SERVER['PHP_SELF']);
+    exit;
 }
 
 // Get all categories
@@ -82,6 +94,12 @@ if ($result) {
         $categories[] = $row;
     }
     $result->free();
+}
+
+// Display any message stored in session
+if (isset($_SESSION['message'])) {
+    $message = $_SESSION['message'];
+    unset($_SESSION['message']); // Clear the message after displaying it
 }
 
 $conn->close();

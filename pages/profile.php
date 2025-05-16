@@ -29,7 +29,7 @@ if (isset($_POST['update_profile'])) {
     $confirm_password = $_POST['confirm_password'];
     
     if (empty($username)) {
-        $message = displayError('Username is required');
+        $_SESSION['message'] = displayError('Username is required');
     } else {
         // Check if username exists for other users
         $stmt = $conn->prepare("SELECT id FROM users WHERE username = ? AND id != ?");
@@ -38,15 +38,15 @@ if (isset($_POST['update_profile'])) {
         $result = $stmt->get_result();
         
         if ($result->num_rows > 0) {
-            $message = displayError('Username already exists');
+            $_SESSION['message'] = displayError('Username already exists');
         } else {
             // If changing password
             if (!empty($new_password)) {
                 // Verify current password
                 if (!password_verify($current_password, $user['password'])) {
-                    $message = displayError('Current password is incorrect');
+                    $_SESSION['message'] = displayError('Current password is incorrect');
                 } elseif ($new_password !== $confirm_password) {
-                    $message = displayError('New passwords do not match');
+                    $_SESSION['message'] = displayError('New passwords do not match');
                 } else {
                     // Update username and password
                     $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
@@ -55,16 +55,9 @@ if (isset($_POST['update_profile'])) {
                     
                     if ($stmt->execute()) {
                         $_SESSION['username'] = $username;
-                        $message = displayAlert('Profile updated successfully');
-                        
-                        // Refresh user data
-                        $stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
-                        $stmt->bind_param("i", $user_id);
-                        $stmt->execute();
-                        $result = $stmt->get_result();
-                        $user = $result->fetch_assoc();
+                        $_SESSION['message'] = displayAlert('Profile updated successfully');
                     } else {
-                        $message = displayError('Error updating profile: ' . $conn->error);
+                        $_SESSION['message'] = displayError('Error updating profile: ' . $conn->error);
                     }
                 }
             } else {
@@ -74,23 +67,34 @@ if (isset($_POST['update_profile'])) {
                 
                 if ($stmt->execute()) {
                     $_SESSION['username'] = $username;
-                    $message = displayAlert('Profile updated successfully');
-                    
-                    // Refresh user data
-                    $stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
-                    $stmt->bind_param("i", $user_id);
-                    $stmt->execute();
-                    $result = $stmt->get_result();
-                    $user = $result->fetch_assoc();
+                    $_SESSION['message'] = displayAlert('Profile updated successfully');
                 } else {
-                    $message = displayError('Error updating profile: ' . $conn->error);
+                    $_SESSION['message'] = displayError('Error updating profile: ' . $conn->error);
                 }
             }
         }
         
         $stmt->close();
     }
+    
+    // Redirect to GET request
+    header('Location: ' . $_SERVER['PHP_SELF']);
+    exit;
 }
+
+// Display any message stored in session
+if (isset($_SESSION['message'])) {
+    $message = $_SESSION['message'];
+    unset($_SESSION['message']); // Clear the message after displaying it
+}
+
+// Get user data (after possible update)
+$stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+$user = $result->fetch_assoc();
+$stmt->close();
 
 // Get user stats
 $total_sales = 0;

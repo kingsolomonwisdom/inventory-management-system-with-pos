@@ -50,7 +50,7 @@ if (isset($_POST['add_product'])) {
     }
     
     if (empty($name) || empty($category_id) || $price <= 0) {
-        $message = displayError('Name, category, and price are required');
+        $_SESSION['message'] = displayError('Name, category, and price are required');
     } else {
         // Check if barcode already exists
         $stmt = $conn->prepare("SELECT id FROM products WHERE barcode = ? AND id != ?");
@@ -60,7 +60,7 @@ if (isset($_POST['add_product'])) {
         $result = $stmt->get_result();
         
         if ($result->num_rows > 0) {
-            $message = displayError('A product with this barcode/SKU already exists. Please use a different barcode.');
+            $_SESSION['message'] = displayError('A product with this barcode/SKU already exists. Please use a different barcode.');
             $stmt->close();
         } else {
             $stmt->close();
@@ -71,7 +71,7 @@ if (isset($_POST['add_product'])) {
                 if ($upload['success']) {
                     $image = $upload['filename'];
                 } else {
-                    $message = displayError($upload['message']);
+                    $_SESSION['message'] = displayError($upload['message']);
                     $image = NULL;
                 }
             }
@@ -84,14 +84,18 @@ if (isset($_POST['add_product'])) {
             $stmt->bind_param("ssiddsds", $name, $description, $category_id, $quantity, $price, $barcode, $low_stock_threshold, $image);
             
             if ($stmt->execute()) {
-                $message = displayAlert('Product added successfully');
+                $_SESSION['message'] = displayAlert('Product added successfully');
             } else {
-                $message = displayError('Error adding product: ' . $conn->error);
+                $_SESSION['message'] = displayError('Error adding product: ' . $conn->error);
             }
             
             $stmt->close();
         }
     }
+    
+    // Redirect to GET request
+    header('Location: ' . $_SERVER['PHP_SELF']);
+    exit;
 }
 
 // Delete product
@@ -110,7 +114,7 @@ if (isset($_GET['delete'])) {
     
     if ($has_sales && !$force) {
         // Product has sales records and not forcing deletion - show warning
-        $message = displayError('This product has sales records. <a href="?delete=' . $id . '&force=1" class="alert-link" onclick="return confirm(\'WARNING: Deleting this product will keep orphaned sales records in the database. This could cause reporting issues. Are you absolutely sure you want to continue?\')">Click here</a> to force delete or consider disabling it instead.');
+        $_SESSION['message'] = displayError('This product has sales records. <a href="?delete=' . $id . '&force=1" class="alert-link" onclick="return confirm(\'WARNING: Deleting this product will keep orphaned sales records in the database. This could cause reporting issues. Are you absolutely sure you want to continue?\')">Click here</a> to force delete or consider disabling it instead.');
     } else {
         // Either no sales records or forcing deletion - proceed with deletion
         
@@ -132,16 +136,20 @@ if (isset($_GET['delete'])) {
         
         if ($stmt->execute()) {
             if ($has_sales && $force) {
-                $message = displayAlert('Product force deleted successfully. Note that orphaned sales records remain in the database.');
+                $_SESSION['message'] = displayAlert('Product force deleted successfully. Note that orphaned sales records remain in the database.');
             } else {
-                $message = displayAlert('Product deleted successfully');
+                $_SESSION['message'] = displayAlert('Product deleted successfully');
             }
         } else {
-            $message = displayError('Error deleting product: ' . $conn->error);
+            $_SESSION['message'] = displayError('Error deleting product: ' . $conn->error);
         }
         
         $stmt->close();
     }
+    
+    // Redirect to GET request (without delete parameter)
+    header('Location: ' . $_SERVER['PHP_SELF']);
+    exit;
 }
 
 // Edit product
@@ -160,7 +168,7 @@ if (isset($_POST['edit_product'])) {
     }
     
     if (empty($name) || empty($category_id) || $price <= 0) {
-        $message = displayError('Name, category, and price are required');
+        $_SESSION['message'] = displayError('Name, category, and price are required');
     } else {
         // Check if barcode already exists for a different product
         $stmt = $conn->prepare("SELECT id FROM products WHERE barcode = ? AND id != ?");
@@ -169,7 +177,7 @@ if (isset($_POST['edit_product'])) {
         $result = $stmt->get_result();
         
         if ($result->num_rows > 0) {
-            $message = displayError('A product with this barcode/SKU already exists. Please use a different barcode.');
+            $_SESSION['message'] = displayError('A product with this barcode/SKU already exists. Please use a different barcode.');
             $stmt->close();
         } else {
             $stmt->close();
@@ -194,7 +202,7 @@ if (isset($_POST['edit_product'])) {
                     }
                     $image = $upload['filename'];
                 } else {
-                    $message = displayError($upload['message']);
+                    $_SESSION['message'] = displayError($upload['message']);
                 }
             }
             
@@ -206,14 +214,18 @@ if (isset($_POST['edit_product'])) {
             $stmt->bind_param("ssiddsisi", $name, $description, $category_id, $quantity, $price, $barcode, $low_stock_threshold, $image, $id);
             
             if ($stmt->execute()) {
-                $message = displayAlert('Product updated successfully');
+                $_SESSION['message'] = displayAlert('Product updated successfully');
             } else {
-                $message = displayError('Error updating product: ' . $conn->error);
+                $_SESSION['message'] = displayError('Error updating product: ' . $conn->error);
             }
             
             $stmt->close();
         }
     }
+    
+    // Redirect to GET request
+    header('Location: ' . $_SERVER['PHP_SELF']);
+    exit;
 }
 
 // Toggle product status
@@ -237,12 +249,22 @@ if (isset($_GET['toggle_status'])) {
     
     if ($stmt->execute()) {
         $status_text = ($new_status == 'active') ? 'enabled' : 'disabled';
-        $message = displayAlert("Product {$status_text} successfully");
+        $_SESSION['message'] = displayAlert("Product {$status_text} successfully");
     } else {
-        $message = displayError('Error updating product status: ' . $conn->error);
+        $_SESSION['message'] = displayError('Error updating product status: ' . $conn->error);
     }
     
     $stmt->close();
+    
+    // Redirect to GET request
+    header('Location: ' . $_SERVER['PHP_SELF']);
+    exit;
+}
+
+// Display any message stored in session
+if (isset($_SESSION['message'])) {
+    $message = $_SESSION['message'];
+    unset($_SESSION['message']); // Clear the message after displaying it
 }
 
 // Get all products
